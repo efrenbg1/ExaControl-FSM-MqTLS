@@ -56,6 +56,5 @@ int MqTLS::callback(String *slot, String *payload)
     if (line.length() < (unsigned int)pay_end)
         return -3;
     *payload = line.substring(7, pay_end);
-    Serial.println(*payload);
     return 5;
 }

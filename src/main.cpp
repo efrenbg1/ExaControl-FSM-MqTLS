@@ -11,12 +11,12 @@ void setup()
     pinMode(LED_BUILTIN, OUTPUT);
     pinMode(BMP180_VCC, OUTPUT);
     digitalWrite(BMP180_VCC, LOW);
+    digitalWrite(LED_BUILTIN, HIGH);
     Serial.begin(9600);
     Serial.println(read_temp());
     control.init();
     while (WiFi.status() != WL_CONNECTED)
         setup_wifi();
-    fsm_init();
     mqtls.lastwill(topic, t_status, "9");
     mqtls.watch(topic);
     fsm_retrieve();

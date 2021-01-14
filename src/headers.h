@@ -13,6 +13,7 @@
 #define t_ONtime "4"
 #define t_OFFtime "5"
 #define t_temp "6"
+#define t_debug "9"
 
 #define BMP180_VCC 13
 #define bajar 12
@@ -27,10 +28,8 @@ extern int ONtime;
 extern float ONtemp;
 extern float OFFtemp;
 
-//void mq_init();
 void mq_callback();
 float read_temp();
-void fsm_init();
 void fsm_retrieve();
 void fsm_callback();
 bool setup_wifi();

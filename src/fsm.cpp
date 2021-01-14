@@ -1,10 +1,9 @@
 #include "headers.h"
 #include <WiFiUdp.h>
 #include <NTPClient.h>
-#include <Ticker.h>
 
 WiFiUDP ntpUDP;
-NTPClient nclock(ntpUDP, "es.pool.ntp.org", 3600);
+NTPClient ntp(ntpUDP, "es.pool.ntp.org", 3600);
 
 int OFFtime = -1;
 int ONtime = -1;
@@ -12,11 +11,7 @@ float ONtemp = 18.0;
 float OFFtemp = -1;
 
 String status = "1";
-
-void fsm_init()
-{
-    nclock.begin();
-}
+String debug = "";
 
 void fsm_retrieve()
 {
@@ -50,12 +45,6 @@ void fsm_callback()
     Serial.print(" | OFFtime: ");
     Serial.println(OFFtime);
 
-    if (!nclock.update())
-    {
-        mqtls.publish(topic, t_status, "2");
-        return;
-    }
-
     mqtls.publish(topic, t_status, "1");
 
     if (OFFtime == -1 || ONtime == -1 || OFFtemp == -1)
@@ -65,8 +54,14 @@ void fsm_callback()
         return;
     }
 
-    int time = nclock.getHours() * 60 + nclock.getMinutes();
-    Serial.print("[FSM] Time: ");
+    if (!ntp.update())
+    {
+        mqtls.publish(topic, t_status, "2");
+        return;
+    }
+
+    int time = ntp.getHours() * 60 + ntp.getMinutes();
+    Serial.print("[NTP] Time: ");
     Serial.println(time);
 
     int on = 0;
@@ -84,6 +79,11 @@ void fsm_callback()
         on = 1;
     }
 
+    if (on == 0)
+    {
+        debug = "ONtemp: " + String(ONtemp) + " | OFFtemp: " + String(OFFtemp) + " | ONtime: " + String(ONtime) + " | OFFtime: " + String(OFFtime) + " | Clock: " + String(time);
+    }
+    mqtls.publish(topic, t_debug, debug);
     control.set(on ? ONtemp : OFFtemp);
     mqtls.publish(topic, t_target, String(control.read(), 1));
 }
