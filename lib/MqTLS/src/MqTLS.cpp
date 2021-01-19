@@ -1,7 +1,5 @@
 #include "MqTLS.h"
 
-//#define debug
-
 MqTLS::MqTLS(String _thumbprint, String _address, int _port, String _user, String _pw)
 {
 	client.setTimeout(3000);
@@ -39,11 +37,6 @@ bool MqTLS::send(String *data)
 	//Serial.println(*data);
 	client.print(*data + '\n');
 
-#ifdef debug
-	Serial.print("[MqTLS] Sent: ");
-	Serial.println(*data);
-#endif
-
 	return true;
 }
 
@@ -62,21 +55,10 @@ int MqTLS::receive(String *data)
 		{
 			buff = client.readStringUntil('\n');
 
-#ifdef debug
-			Serial.print("[MqTLS] Read: ");
-			Serial.println(buff);
-#endif
-
 			if (buff.indexOf("MQS") != 0)
 				return -3;
 			if (buff.indexOf("MQS5") == 0)
 			{
-
-#ifdef debug
-				Serial.print("[MqTLS] WatchBuff += ");
-				Serial.println(buff);
-#endif
-
 				if (watchBuff.length() > 1000)
 					continue;
 				watchBuff += buff + '\n';
@@ -116,9 +98,9 @@ int MqTLS::communicate(String *command, String *data)
 	while (retries > 0)
 	{
 		int status = receive(data);
-		if (status < -1)
+		if (status == -3)
 			return status;
-		if (status == -1)
+		if (status < 0)
 		{
 			int status = connect();
 			if (status < 0)
@@ -140,11 +122,7 @@ int MqTLS::communicate(String *command, String *data)
 //  9 error auth
 int MqTLS::connect()
 {
-
-#ifdef debug
-	Serial.print("[MqTLS] Connecting to: ");
-	Serial.println(address);
-#endif
+	disconnect();
 
 	String command = "MQS0" + enc(&user) + enc(&pw) + "1";
 	while (!send(&command))

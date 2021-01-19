@@ -12,20 +12,29 @@ float OFFtemp = -1;
 
 String status = "1";
 String debug = "";
+String debug2 = "";
 
 void fsm_retrieve()
 {
     String retrieve;
-    if (mqtls.retrieve(topic, t_ONtemp, &retrieve) == 2 && !retrieve.equals(""))
+    int done = mqtls.retrieve(topic, t_ONtemp, &retrieve);
+    debug2 = String(done);
+    if (done == 2 && !retrieve.equals(""))
         ONtemp = retrieve.toFloat();
 
-    if (mqtls.retrieve(topic, t_OFFtemp, &retrieve) == 2 && !retrieve.equals(""))
+    done = mqtls.retrieve(topic, t_OFFtemp, &retrieve);
+    debug2 += String(done);
+    if (done == 2 && !retrieve.equals(""))
         OFFtemp = retrieve.toFloat();
 
-    if (mqtls.retrieve(topic, t_ONtime, &retrieve) == 2 && !retrieve.equals(""))
+    done = mqtls.retrieve(topic, t_ONtime, &retrieve);
+    debug2 += String(done);
+    if (done == 2 && !retrieve.equals(""))
         ONtime = retrieve.toInt();
 
-    if (mqtls.retrieve(topic, t_OFFtime, &retrieve) == 2 && !retrieve.equals(""))
+    done = mqtls.retrieve(topic, t_OFFtime, &retrieve);
+    debug2 += String(done);
+    if (done == 2 && !retrieve.equals(""))
         OFFtime = retrieve.toInt();
 }
 
@@ -81,7 +90,7 @@ void fsm_callback()
 
     if (on == 0)
     {
-        debug = "ONtemp: " + String(ONtemp) + " | OFFtemp: " + String(OFFtemp) + " | ONtime: " + String(ONtime) + " | OFFtime: " + String(OFFtime) + " | Clock: " + String(time);
+        debug = debug2 + "ONtemp: " + String(ONtemp) + " | OFFtemp: " + String(OFFtemp) + " | ONtime: " + String(ONtime) + " | OFFtime: " + String(OFFtime) + " | Clock: " + String(time);
     }
     mqtls.publish(topic, t_debug, debug);
     control.set(on ? ONtemp : OFFtemp);
