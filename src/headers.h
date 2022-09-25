@@ -1,7 +1,7 @@
 #ifndef HEADERS_H
 #define HEADERS_H
 
-#include <MqTLS.h>
+#include <PubSubClient.h>
 #include <ExaControl.h>
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -21,7 +21,7 @@
 #define LED 2
 
 extern String topic;
-extern MqTLS mqtls;
+extern PubSubClient mqtt;
 extern ExaControl control;
 extern int OFFtime;
 extern int ONtime;
@@ -30,7 +30,6 @@ extern float OFFtemp;
 
 void mq_callback();
 float read_temp();
-void fsm_retrieve();
 void fsm_callback();
 bool setup_wifi();
 

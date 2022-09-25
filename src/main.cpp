@@ -2,9 +2,40 @@
 #include "secret.h"
 
 ExaControl control(subir, bajar);
-MqTLS mqtls(fingerprint, mq_address, mq_port, mq_user, mq_pw);
+
+WiFiClientSecure client;
+PubSubClient mqtt(client);
 
 String topic = WiFi.macAddress();
+
+void callback(char *topic, byte *payload, unsigned int length)
+{
+    String msg;
+    for (unsigned int i = 0; i < length && i < 50; i++)
+    {
+        msg += String((char)payload[i]);
+    }
+    if (strcmp(topic, "home/heater/day/thermostat") == 0)
+    {
+        ONtemp = msg.toFloat();
+        fsm_callback();
+    }
+    if (strcmp(topic, "home/heater/night/thermostat") == 0)
+    {
+        OFFtemp = msg.toFloat();
+        fsm_callback();
+    }
+    if (strcmp(topic, "home/heater/day/time") == 0)
+    {
+        ONtime = msg.substring(0, 2).toInt() * 60 + msg.substring(3, 5).toInt();
+        fsm_callback();
+    }
+    if (strcmp(topic, "home/heater/night/time") == 0)
+    {
+        OFFtime = msg.substring(0, 2).toInt() * 60 + msg.substring(3, 5).toInt();
+        fsm_callback();
+    }
+}
 
 void setup()
 {
@@ -17,38 +48,42 @@ void setup()
     control.init();
     while (WiFi.status() != WL_CONNECTED)
         setup_wifi();
-    mqtls.lastwill(topic, t_status, "9");
-    mqtls.watch(topic);
-    fsm_retrieve();
-    fsm_callback();
+    client.setFingerprint(fingerprint);
+    mqtt.setServer(mq_server, 8883);
+    mqtt.setCallback(callback);
 }
 
 int timeout = 150;
 String slot, msg;
 void loop()
 {
-    if (mqtls.callback(&slot, &msg) == 5)
+    while (!client.connected())
     {
-        if (slot == t_ONtemp)
-            ONtemp = msg.toFloat();
-        if (slot == t_OFFtemp)
-            OFFtemp = msg.toFloat();
-        if (slot == t_ONtime)
-            ONtime = msg.toInt();
-        if (slot == t_OFFtime)
-            OFFtime = msg.toInt();
-        if (slot != t_status)
-            fsm_callback();
+        Serial.print("Attempting MQTT connection...");
+        if (mqtt.connect(WiFi.macAddress().c_str(), mq_user, mq_pw))
+        {
+            Serial.println("connected");
+            mqtt.subscribe("home/heater/day/thermostat");
+            mqtt.subscribe("home/heater/day/time");
+            mqtt.subscribe("home/heater/night/thermostat");
+            mqtt.subscribe("home/heater/night/time");
+        }
+        else
+        {
+            Serial.println("fail");
+            delay(5000);
+        }
     }
+
+    mqtt.loop();
     if (timeout == 0)
     {
         timeout = 150;
 
         // Read temp
-        mqtls.publish(topic, t_temp, String(read_temp(), 1));
+        mqtt.publish("home/heater/temp", String(read_temp(), 1).c_str(), true);
 
         // FSM
-        fsm_retrieve();
         fsm_callback();
     }
     timeout--;
