@@ -1,9 +1,13 @@
 #include "headers.h"
 #include <WiFiUdp.h>
 #include <NTPClient.h>
+#include <Timezone.h>
 
 WiFiUDP ntpUDP;
-NTPClient ntp(ntpUDP, "es.pool.ntp.org", 3600);
+NTPClient ntp(ntpUDP, "pool.ntp.org", 0);
+TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120}; // Central European Summer Time
+TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};   // Central European Standard Time
+Timezone TZ(CEST, CET);
 
 int OFFtime = -1;
 int ONtime = -1;
@@ -13,30 +17,6 @@ float OFFtemp = -1;
 String status = "1";
 String debug = "";
 String debug2 = "";
-
-void fsm_retrieve()
-{
-    String retrieve;
-    int done = mqtls.retrieve(topic, t_ONtemp, &retrieve);
-    debug2 = String(done);
-    if (done == 2 && !retrieve.equals(""))
-        ONtemp = retrieve.toFloat();
-
-    done = mqtls.retrieve(topic, t_OFFtemp, &retrieve);
-    debug2 += String(done);
-    if (done == 2 && !retrieve.equals(""))
-        OFFtemp = retrieve.toFloat();
-
-    done = mqtls.retrieve(topic, t_ONtime, &retrieve);
-    debug2 += String(done);
-    if (done == 2 && !retrieve.equals(""))
-        ONtime = retrieve.toInt();
-
-    done = mqtls.retrieve(topic, t_OFFtime, &retrieve);
-    debug2 += String(done);
-    if (done == 2 && !retrieve.equals(""))
-        OFFtime = retrieve.toInt();
-}
 
 void fsm_callback()
 {
@@ -54,24 +34,21 @@ void fsm_callback()
     Serial.print(" | OFFtime: ");
     Serial.println(OFFtime);
 
-    mqtls.publish(topic, t_status, "1");
-
     if (OFFtime == -1 || ONtime == -1 || OFFtemp == -1)
     {
         control.set(ONtemp);
-        mqtls.publish(topic, t_target, String(control.read(), 1));
+        mqtt.publish("home/heater/day/state", "heat", true);
+        mqtt.publish("home/heater/night/state", "off", true);
         return;
     }
 
-    if (!ntp.update())
-    {
-        mqtls.publish(topic, t_status, "2");
-        return;
-    }
-
-    int time = ntp.getHours() * 60 + ntp.getMinutes();
+    ntp.update();
+    time_t t = TZ.toLocal(ntp.getEpochTime());
+    tm *t_struct = localtime(&t);
+    int time = t_struct->tm_hour * 60 + t_struct->tm_min;
     Serial.print("[NTP] Time: ");
     Serial.println(time);
+    mqtt.publish("home/heater/time", String(time).c_str(), true);
 
     int on = 0;
 
@@ -88,11 +65,18 @@ void fsm_callback()
         on = 1;
     }
 
-    if (on == 0)
+    if (on)
     {
-        debug = debug2 + "ONtemp: " + String(ONtemp) + " | OFFtemp: " + String(OFFtemp) + " | ONtime: " + String(ONtime) + " | OFFtime: " + String(OFFtime) + " | Clock: " + String(time);
+        mqtt.publish("home/heater/day/state", "heat", true);
+        mqtt.publish("home/heater/night/state", "off", true);
     }
-    mqtls.publish(topic, t_debug, debug);
+    else
+    {
+        mqtt.publish("home/heater/day/state", "off", true);
+        mqtt.publish("home/heater/night/state", "heat", true);
+    }
+
     control.set(on ? ONtemp : OFFtemp);
-    mqtls.publish(topic, t_target, String(control.read(), 1));
+
+    mqtt.publish("home/heater/thermostat", String(control.read(), 1).c_str(), true);
 }
